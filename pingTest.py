@@ -5,7 +5,6 @@ from time import sleep
 from tkinter import *
 from tkinter import messagebox
 
-
 addresses = {
              '10.252.50.150': (185, 300, 'plc'),
              '10.252.50.151': (185, 218, 'hmi'),
@@ -46,20 +45,22 @@ class Host:
 
 
 def ping(host):
-
+    # Update host status if not current
     response = ping_it(host.ip)
     if response:
-        host.status = 'up'
-        host.update_image()
+        if host.status == 'down':
+            host.status = 'up'
+            host.update_image()
     else:
-        host.status = 'down'
-        host.update_image()
+        if host.status == 'up':
+            host.status = 'down'
+            host.update_image()
 
 
 def ping_it(host):
-    # Ping parameters as function of OS
+    # Determine OS and set ping string parameters
     ping_str = "-n 1" if platform.system().lower() == "windows" else "-c 1"
-    # Ping
+    # Ping host and return if active
     try:
         if subprocess.check_call("ping " + ping_str + " " + host, stdout=subprocess.PIPE) == 0:
             return True
@@ -68,15 +69,17 @@ def ping_it(host):
 
 
 def on_closing():
+    # Stop drawing objects and destroy window
     global stopped
     if messagebox.askokcancel("Quit", "Do you want to quit?"):
         stopped = True
         top.destroy()
 
-
+# Build window, canvas, background and static images
 top = Tk()
 top.wm_title("Ethernet Device Status")
 top.protocol("WM_DELETE_WINDOW", on_closing)
+top.resizable(0, 0)
 C = Canvas(top, bg="white", height=600, width=900)
 C.pack()
 b_ground = PhotoImage(file='images/background.gif')
@@ -87,12 +90,15 @@ switch = PhotoImage(file='images/switchup.gif')
 C.create_image(435, 215, anchor=SW, image=switch)
 C.create_image(690, 360, anchor=SW, image=switch)
 C.create_image(435, 425, anchor=SW, image=switch)
+# Spawn Host objects from static dictionary and set all default states to 'down'
 for address in addresses:
     address = Host(address, addresses[address])
     hosts.append(address)
 for host in hosts:
     host.update_filename(PhotoImage(file=host.image))
     C.create_image(host.image_x, host.image_y, anchor=SW, image=host.filename)
+
+# Ping each host (delay 0.5 between to lighten network load) and update host status and GUI
 index = 0
 while not stopped:
     sleep(0.5)
